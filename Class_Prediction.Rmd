@@ -1,0 +1,160 @@
+---
+title: "Machine Learning Project"
+author: "Kobra"
+date: "08/11/2019"
+output:
+  html_document:
+    df_print: paged
+  pdf_document: default
+---
+Outline:
+
+One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, our goal is to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants and predict the quality of the activities. In this dataset, quality is described with 5 different levels: A,B,C,D and E under variable 'Classe'. 
+
+# Loading data and required libraries
+
+Loading required libraries:
+
+```{r, , include=FALSE}
+library (dplyr)
+library (ggplot2)
+library (caret)
+library (rattle)
+library (randomForest)
+library (rpart)
+```
+
+Downloading training data:
+
+```{r, message=FALSE}
+URL1 <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+download.file(URL1, destfile = "./training.csv", mode="wb")
+```
+
+```{r}
+data <- read.csv("./training.csv")
+```
+
+Downloading data for final evaluation:
+
+```{r, message=FALSE}
+URL2 <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+
+download.file (URL2, destfile = "./testing.csv", mode= "wb")
+```
+
+```{r}
+Quiz <- read.csv("./testing.csv")
+```
+
+```{r}
+dim (data)
+```
+```{r}
+head (data)
+```
+
+```{r}
+str (data)
+```
+
+# Data Cleaning
+
+The first 7 columns do not have any information that can be related to the quality of activities. So those columns will be removed.
+
+```{r}
+data <- data [, -c(1:7)]
+dim(data)
+```
+
+Also, there are NAs in the dataset which need to be handled. I have decided to take out the variables that have more than %90 NAs. If there is any remaining, na.roughfix will be used to replace NAs with either median (numeric variables) or mode (categorical variables).
+
+```{r}
+ColRemove <- which(colSums(is.na(data)|data=="")>0.9*dim(data)[1])
+dataClean <- data[,-ColRemove]
+dim (dataClean)
+```
+Checking if there is any other variable with NAs:
+```{r}
+sum(is.na (dataClean))
+```
+The outcome shows that there is no more NA in dataset, so we are safe to move to the next step without any more preprocessing.
+
+# Modelling- Deviding dataset to test and training
+
+1. Dividing the data to training and test set:
+
+```{r}
+set.seed(1234)
+InTrain <- createDataPartition(dataClean$classe, p=0.7, list = FALSE)
+train <- dataClean [InTrain, ]
+test <- dataClean [-InTrain, ]
+dim (train)
+dim (test)
+```
+## Modelling using Decision Tree
+
+Building the model:
+```{r}
+modDecisionTree <- rpart(classe~., data= train, control = rpart.control(xval = 5))
+```
+
+```{r}
+fancyRpartPlot(modDecisionTree)
+```
+
+Preciting using Decision tree model:
+```{r}
+PredDT <- predict(modDecisionTree,newdata=test, type = "class")
+```
+
+Estimating the accuracy of the model:
+```{r}
+confMatCT <- confusionMatrix(test$classe,PredDT)
+
+confMatCT$table
+confMatCT$overall[1]
+```
+
+
+## Modelling using Radnom Forest
+
+Bulding the model:
+
+```{r}
+modRandFor <- randomForest (classe~., data= train, rfcv=rfcv(cv.fold = 5))
+```
+
+Predicting using Random forest model:
+
+```{r}
+PredRF <- predict(modRandFor,newdata=test, type = "class")
+```
+
+```{r}
+plot (modRandFor)
+```
+Estimating the accuracy of the model:
+
+```{r}
+confMatRF <- confusionMatrix(test$classe,PredRF)
+confMatRF$table
+confMatRF$overall[1]
+```
+# Conclusion:
+
+Bsed on the results above, ,odelling using Random Forest algorithm gives us a very high accuracy (%99.56) which gives us enough confidence to use it for our final prediction.
+
+# Predicting the final test data using Random Forest Model
+
+```{r}
+PredRF_final <- predict(modRandFor,newdata=Quiz, type = "class")
+```
+
+final result:
+ PredRF_final
+ 1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 16 17 18 19 20 
+ B  A  B  A  A  E  D  B  A  A  B  C  B  A  E  E  A  B  B  B 
+Levels: A B C D E
+> print(modRandFor)
+
